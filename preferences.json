@@ -1,0 +1,12 @@
+{
+    "PEPE": {
+        "theme": "dark",
+        "font_size": 18,
+        "monochrome": true
+    },
+    "oscar": {
+        "theme": "light",
+        "font_size": 25,
+        "monochrome": true
+    }
+}

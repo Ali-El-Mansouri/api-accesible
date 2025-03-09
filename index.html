@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de API de Accesibilidad</title>
+    <style>
+        body {
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .dark-theme {
+            background-color: #121212;
+            color: #ffffff;
+        }
+        .monochrome {
+            filter: grayscale(100%);
+        }
+        .high-contrast {
+            background-color: yellow;
+            color: black;
+            font-weight: bold;
+        }
+        #loading {
+            display: none;
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Configuraciones de Accesibilidad</h1>
+
+    <button onclick="toggleTheme()">Cambiar Tema (Oscuro/Claro)</button>
+    <br><br>
+    <button onclick="increaseFontSize()">Aumentar Tamaño de Fuente</button>
+    <button onclick="decreaseFontSize()">Disminuir Tamaño de Fuente</button>
+    <br><br>
+    <button onclick="toggleMonochrome()">Modo Monocromático</button>
+    <br><br>
+    <button onclick="toggleHighContrast()">Modo Alto Contraste</button>
+
+    <div id="loading">Guardando...</div>
+
+    <script>
+        const userId = "PEPE"; // Cambia esto por el ID del usuario para probar
+        let saveTimeout;
+
+        // Guardar en localStorage
+        function saveToLocalStorage(preferences) {
+            localStorage.setItem("userPreferences", JSON.stringify(preferences));
+        }
+
+        // Cargar desde localStorage
+        function loadFromLocalStorage() {
+            const savedPrefs = localStorage.getItem("userPreferences");
+            return savedPrefs ? JSON.parse(savedPrefs) : null;
+        }
+
+        // Aplicar preferencias guardadas
+        function applyPreferences(preferences) {
+            document.body.classList.toggle("dark-theme", preferences.theme === "dark");
+            document.body.classList.toggle("monochrome", preferences.monochrome);
+            document.body.classList.toggle("high-contrast", preferences.high_contrast);
+            document.body.style.fontSize = `${preferences.font_size}px`;
+        }
+
+        // Mostrar/Ocultar indicador de carga
+        function showLoading() {
+            document.getElementById("loading").style.display = "block";
+        }
+
+        function hideLoading() {
+            document.getElementById("loading").style.display = "none";
+        }
+
+        // Función genérica para hacer peticiones a la API
+        function apiRequest(endpoint, method = "GET", body = null) {
+            const options = {
+                method,
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            };
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            return fetch(`http://127.0.0.1:8000${endpoint}`, options)
+                .then(response => {
+                    if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+                    return response.json();
+                })
+                .catch(error => console.error("API Error:", error));
+        }
+
+        // Guardar preferencias con retraso para evitar muchas peticiones
+        function delayedSavePreferences() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(savePreferences, 1000);
+        }
+
+        // Guardar preferencias en localStorage y en la API
+        function savePreferences() {
+            showLoading();
+
+            const preferences = {
+                theme: document.body.classList.contains("dark-theme") ? "dark" : "light",
+                font_size: parseInt(document.body.style.fontSize) || 16,
+                monochrome: document.body.classList.contains("monochrome"),
+                high_contrast: document.body.classList.contains("high-contrast")
+            };
+
+            saveToLocalStorage(preferences);
+
+            apiRequest(`/accessibility/preferences/${userId}`, "POST", preferences)
+                .then(data => console.log("Preferencias guardadas:", data))
+                .finally(() => hideLoading());
+        }
+
+        // Alternar tema
+        function toggleTheme() {
+            document.body.classList.toggle("dark-theme");
+            savePreferences();
+        }
+
+        // Cambiar tamaño de fuente
+        function increaseFontSize() {
+            let currentSize = parseInt(document.body.style.fontSize) || 16;
+            document.body.style.fontSize = `${currentSize + 2}px`;
+            delayedSavePreferences();
+        }
+
+        function decreaseFontSize() {
+            let currentSize = parseInt(document.body.style.fontSize) || 16;
+            document.body.style.fontSize = `${currentSize - 2}px`;
+            delayedSavePreferences();
+        }
+
+        // Alternar modo monocromático
+        function toggleMonochrome() {
+            document.body.classList.toggle("monochrome");
+            savePreferences();
+        }
+
+        // Alternar modo alto contraste
+        function toggleHighContrast() {
+            document.body.classList.toggle("high-contrast");
+            savePreferences();
+        }
+
+        // Cargar preferencias al iniciar
+        window.onload = function () {
+            const localPrefs = loadFromLocalStorage();
+
+            if (localPrefs) {
+                applyPreferences(localPrefs);
+            } else {
+                apiRequest(`/accessibility/preferences/${userId}`)
+                    .then(data => {
+                        applyPreferences(data);
+                        saveToLocalStorage(data);
+                    })
+                    .catch(error => console.error("Error al obtener preferencias:", error));
+            }
+        };
+    </script>
+</body>
+</html>
